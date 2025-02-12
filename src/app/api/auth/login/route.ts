@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
-import User from "@/models/User";
+import   User  from "@/models/User";
 import { dbConnect } from "@/lib/mongodb";
 import { signJwtToken } from "@/utils/auth";
 
@@ -30,9 +30,9 @@ export async function POST(req: Request) {
         if (!isMatch) {
             return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
         }
-
+        const userId = user._id.toString();
         // ✅ Convert user._id to a string to avoid TypeScript error
-        const token = signJwtToken(user._id.toString());
+        const token = signJwtToken(userId);
 
         return NextResponse.json({ message: "Login successful", token }, { status: 200 });
     } catch (error) {

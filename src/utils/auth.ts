@@ -1,59 +1,82 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions, User as NextAuthUser } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { dbConnect } from "@/lib/mongodb";
-import User from "@/models/User";
-import { getServerSession } from "next-auth";
 import jwt from "jsonwebtoken";
+import { dbConnect } from "@/lib/mongodb";
+import User, { IUser } from "@/models/User";
+import { getServerSession } from "next-auth";
 
-const SECRET = process.env.NEXTAUTH_SECRET || "default_secret";
+// Ensure secret is properly set
+const SECRET = process.env.NEXTAUTH_SECRET;
+if (!SECRET) {
+    throw new Error("❌ NEXTAUTH_SECRET is missing in environment variables.");
+}
 
+// JWT Signing Function
 export const signJwtToken = (payload: string | object) => {
     return jwt.sign({ id: payload }, SECRET, { expiresIn: "7d" });
 };
-console.log("Exports from auth.ts:", { signJwtToken });
 
+// Debugging log
+console.log("🔹 Auth exports initialized:", { signJwtToken });
+
+// Get Session Function
 export const getSession = async () => {
     return await getServerSession(authOptions);
 };
 
+// Define Extended User Type
+interface ExtendedUser extends NextAuthUser {
+    id: string;
+    username: string;
+    email: string;
+}
+
+// NextAuth Configuration
 export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
             name: "Credentials",
             credentials: {
-                email: { label: "Email", type: "email", placeholder: "user@example.com" },
-                password: { label: "Password", type: "password" }
+                username: { label: "Username", type: "text", placeholder: "your_username" },
+                password: { label: "Password", type: "password" },
             },
-            async authorize(credentials) {
+            async authorize(credentials): Promise<ExtendedUser | null> {
                 await dbConnect();
 
-                if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Missing email or password");
+                if (!credentials?.username || !credentials?.password) {
+                    console.error("❌ Missing username or password");
+                    throw new Error("Missing username or password");
                 }
 
-                const user = await User.findOne({ email: credentials.email });
+                // Fetch user from database
+                const user = (await User.findOne({ username: credentials.username })) as IUser | null;
 
                 if (!user) {
+                    console.error(`❌ User not found: ${credentials.username}`);
                     throw new Error("User not found");
                 }
 
                 if (!user.isVerified) {
+                    console.warn(`⚠️ Unverified account: ${credentials.username}`);
                     throw new Error("Please verify your email before logging in.");
                 }
 
                 const isValidPassword = await bcrypt.compare(credentials.password, user.password);
                 if (!isValidPassword) {
+                    console.error("❌ Invalid password attempt");
                     throw new Error("Invalid password");
                 }
 
+                console.log(`✅ Successful login: ${user.username}`);
+
                 return {
-                    id: user._id.toString(),
+                    id: user._id.toString(), // ✅ Type assertion
+                    username: user.username,
                     email: user.email,
-                    name: user.username,
                 };
-            }
-        })
+            },
+        }),
     ],
     pages: {
         signIn: "/login",
@@ -65,11 +88,12 @@ export const authOptions: NextAuthOptions = {
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
+                const typedUser = user as ExtendedUser; // ✅ Ensure correct type
                 return {
                     ...token,
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
+                    id: typedUser.id,
+                    username: typedUser.username,
+                    email: typedUser.email,
                 };
             }
             return token;
@@ -80,14 +104,15 @@ export const authOptions: NextAuthOptions = {
                 user: {
                     ...session.user,
                     id: token.id as string,
+                    username: token.username as string,
                 },
             };
-        }
+        },
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: SECRET,
     debug: process.env.NODE_ENV === "development",
 };
 
+// NextAuth API Route Handler
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-
