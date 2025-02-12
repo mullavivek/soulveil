@@ -22,7 +22,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        if (!user.verified) {
+        if (!user.isVerified) {
             return NextResponse.json({ error: "Please verify your email before logging in." }, { status: 403 });
         }
 
