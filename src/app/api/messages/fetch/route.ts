@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
 
     const messages = await Message.find({
         $or: [
-            { senderId: session.userId, recipientId: chatPartnerId },
-            { senderId: chatPartnerId, recipientId: session.userId }
+            { senderId: session.User.Id, recipientId: chatPartnerId },
+            { senderId: chatPartnerId, recipientId: session.User.Id }
         ]
     }).sort({ createdAt: -1 });
 

@@ -17,12 +17,9 @@ export const signJwtToken = (payload: string | object) => {
     return jwt.sign({ id: payload }, SECRET, { expiresIn: "7d" });
 };
 
-// Debugging log
-console.log("🔹 Auth exports initialized:", { signJwtToken });
-
-// Get Session Function
-export const getSession = async () => {
-    return await getServerSession(authOptions);
+// Get Session Function with proper type handling
+export const getSession = async (): Promise<{ User?: { id: string; username: string; email: string } } | null> => {
+    return (await getServerSession(authOptions)) as { User?: { id: string; username: string; email: string } } | null;
 };
 
 // Define Extended User Type
@@ -71,7 +68,7 @@ export const authOptions: NextAuthOptions = {
                 console.log(`✅ Successful login: ${user.username}`);
 
                 return {
-                    id: user._id.toString(), // ✅ Type assertion
+                    id: user._id.toString(),
                     username: user.username,
                     email: user.email,
                 };
@@ -88,12 +85,11 @@ export const authOptions: NextAuthOptions = {
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                const typedUser = user as ExtendedUser; // ✅ Ensure correct type
                 return {
                     ...token,
-                    id: typedUser.id,
-                    username: typedUser.username,
-                    email: typedUser.email,
+                    id: (user as ExtendedUser).id,
+                    username: (user as ExtendedUser).username,
+                    email: (user as ExtendedUser).email,
                 };
             }
             return token;
@@ -105,6 +101,7 @@ export const authOptions: NextAuthOptions = {
                     ...session.user,
                     id: token.id as string,
                     username: token.username as string,
+                    email: token.email as string,
                 },
             };
         },

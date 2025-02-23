@@ -1,7 +1,12 @@
 import mongoose, { Connection } from "mongoose";
+import process from "process";
+import dotenv from "dotenv";
+dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
 
+
+console.log(MONGO_URI);
 if (!MONGO_URI) {
     throw new Error("❌ Please define the MONGO_URI environment variable in your .env or .env.local file.");
 }
@@ -38,3 +43,4 @@ export const dbConnect = async (): Promise<Connection> => {
     cached.conn = await cached.promise;
     return cached.conn;
 };
+
